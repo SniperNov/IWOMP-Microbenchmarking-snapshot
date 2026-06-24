@@ -1,255 +1,248 @@
-# 🚀 OpenMP Offloading Microbenchmark
+# IWOMP Microbenchmarking Snapshot
 
-<p align="center">
-  <img src="https://img.shields.io/badge/OpenMP-Target_Offloading-blue?logo=openmp&style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/GPU-AMD_MI250X-orange?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/Compiler-GCC%20%7C%20Clang%20%7C%20Cray%20%7C%20NVC-green?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/Status-Active_Development-purple?style=for-the-badge"/>
-</p>
+This repository is a clean code snapshot of the OpenMP offloading microbenchmark used for the IWOMP paper submission. It is intended to preserve the submitted code state in a compact, reproducible form.
 
-<p align="center">
-A fully configurable, architecture-aware, and compiler-portable microbenchmark suite for studying  
-<b>OpenMP target offloading, kernel-launch overhead, and data-mapping behavior</b>.
-</p>
+The active development repository may continue changing after submission. This snapshot should therefore be treated as a milestone artifact rather than the latest development branch.
 
-## 📚 Table of Contents
-- Overview
-- Repository Contents
-- Parameters & Execution Model
-- Parameter Relationships
-- Compilation
-- Running the Benchmark
-- Benchmark Output Formats
-- Example Run Script
-- Default Configuration
-- Recent Modifications
-- Contact
+## What This Repository Contains
 
-## ✨ Overview
-
-This microbenchmark suite evaluates OpenMP target offloading performance across multiple GPU architectures and compiler toolchains. It focuses on:
-
-- Data mapping overhead (map(to/from/tofrom/alloc))
-- Kernel launch overhead (teams, parallel, distribute, atomic, reduction)
-- Execution scaling under varying delaylength
-- Impact of N, thread_count, team_count, MAX_ITER
-- Compiler/runtime differences across GCC, Clang, Cray CCE, NVIDIA NVC
-
-## 📂 Repository Contents
-
-| File | Description |
-|------|-------------|
-| microbenchmark.c | Main benchmark implementation |
-| common.c | Timing, delay kernel |
-| common.h | Declarations and configuration macros |
-| Makefile | Multi-compiler build system |
-| Makefile.defs.gcc | GCC compiler flags |
-| Makefile.defs.clang | amdclang flags |
-| Makefile.defs.cray | Cray CCE compiler flags |
-| Makefile.defs.nvc | NVIDIA HPC SDK flags |
-| run.sh | Example batch-wrapper used by SLURM jobs |
-
-## 🧵 Parameters & Execution Model
-
-Supported runtime parameters:
-
-```
-| Method | OMP offloading Pragma |
-| N | array size (mapping) OR tmp[] size (kernel methods) |
-| Delay | size of delay kernel workload; sampled log-scale |
-| thread_count | threads per team |
-| team_count | number of GPU teams (≈ Compute Units) |
-| MAX_ITER | loop-iteration space inside GPU kernel |
-| MAX_ARRAY_SIZE | memory allocation size for a[] |
+```text
+.
+├── Makefile
+├── Makefile.defs.*
+├── jobs/
+├── plots/
+├── result/
+└── src/
 ```
 
-## 🧩 Parameter Relationships
+| Path | Purpose |
+|------|---------|
+| `src/microbenchmark.c` | Main OpenMP target-offloading benchmark implementation. |
+| `src/common.c` | Shared runtime helpers and delay-kernel implementation. |
+| `src/common.h` | Declarations shared by the benchmark source files. |
+| `Makefile` | Build targets for the normal and distribution-enabled benchmark binaries. |
+| `Makefile.defs.*` | Compiler/toolchain-specific build flags. |
+| `jobs/` | Example run scripts for the machines used during development and evaluation. |
+| `plots/plot_raw_times.py` | Helper script for plotting raw timing data and fitted overhead lines. |
+| `result/` | Empty output placeholder. Results are intentionally not included in this snapshot. |
 
-✔ Most important constraint
+## What Is Intentionally Not Included
 
-```
-thread_count × team_count ≤ MAX_ITER ≤ MAX_ARRAY_SIZE
-```
+This repository excludes generated or machine-specific artifacts:
 
-✔ Interpretation of N depends on method
-
-| Methods | Meaning of N | Actual allocation |
-|--------|--------------|------------------|
-| Case 1–4 (mapping) | a size = N | double a[MAX_ARRAY_SIZE] |
-| Case 5–11 (kernel-launch) | tmp[N] | a always size = MAX_ARRAY_SIZE |
-
-✔ Recommended usage
-
-| Goal | N |
-|------|---|
-| Mapping cost measuring method | large N (e.g., 16382 or 65528) |
-| Kernel launch cost measuring method | very small N (2, 4, 8) |
-
-## ⏱ Delaylength & Offloading Example
-
-Delaylength governs the artificial per-iteration workload in the device kernel:
-
-```c
-#pragma omp target map(tofrom: a[0:N])
-for (int i = 0; i < g_max_iter; ++i) {
-    delay_kernel(delay, &a[i]);
-}
+```text
+raw benchmark results
+generated plots
+compiled binaries
+object files
+temporary build directories
+ad hoc test files
 ```
 
-Default delay settings:
+The goal is to keep only the code, build definitions, job scripts, and plotting helper needed to reproduce or inspect the submitted benchmark implementation.
 
-```c
-#define MIN_DELAYLENGTH 512
-#define MAX_DELAYLENGTH 262144
-#define NUM_SAMPLES 20   // must be >= 5 for regression
+## Benchmark Goal
+
+The benchmark estimates OpenMP GPU offloading overhead by measuring total execution time across a range of artificial delay lengths. It then summarizes the measured curve using:
+
+```text
+BIC-selected linear intercept
+lowest observed average time
 ```
-Delaylength is sampled logarithmically, capturing kernel launch → computation transitions.
-Too small → noise
-Too large → dominated by compute instead of launch overhead
 
-## 🛠 Compilation
+The intercept is used as an estimate of launch or offloading overhead after accounting for the delay-kernel workload.
 
-The benchmark supports multiple compilers.
-Compile benchmark:
+## High-Level Execution Flow
 
+For each selected method and input size:
+
+```text
+parse command-line arguments
+adjust MAX_ITER and MAX_ARRAY_SIZE if needed
+check that OpenMP target execution runs on the device
+generate log-spaced delay lengths
+warm up the runtime/device
+measure all set/run/delay combinations
+write raw timing rows to raw_times.csv
+fit timing curves with BIC-selected linear regression
+print BIC intercept and lowest observed timing
+optionally write detailed fitting output to overhead_distribution.txt
 ```
+
+## Build
+
+The default `Makefile` includes:
+
+```make
+include Makefile.defs.nvc
+```
+
+Change this line if a different compiler configuration is needed.
+
+Available compiler definition files:
+
+| File | Intended toolchain |
+|------|--------------------|
+| `Makefile.defs.nvc` | NVIDIA HPC SDK / `nvc` |
+| `Makefile.defs.gcc` | GCC OpenMP offloading configuration |
+| `Makefile.defs.clang` | Clang / AMD Clang-style OpenMP configuration |
+| `Makefile.defs.cray` | Cray compiler environment |
+| `Makefile.defs.aocc` | AOCC-style configuration |
+| `Makefile.defs.MI300X` | MI300X-specific configuration |
+
+Build the standard benchmark:
+
+```bash
 make
 ```
 
-Produces binary:
-```
-./microbenchmark
-```
+This produces:
 
-Compile distribution-enabled version:
-
-```
-make distribution
-```
-Produces:
-```
-./microbenchmark_distribution
-overhead_distribution.txt
+```text
+microbenchmark
 ```
 
-## 🧪 Running the Benchmark
-
-### 1. Adjust parameters inside run.sh:
-
-```
-./microbenchmark_distribution Method=6,8,9 N=2 Delay=262144 thread_count=16 team_count=64
-```
-
-### 2. Run via SLURM:
-
-Inside your SLURM script:
-```
-srun ./run.sh
-```
-
-## 📄 Benchmark Output Formats
-
-### 🟦 1. Output from make 
-
-```
-Running microbenchmark...
-========== Runtime Configuration ==========
-Delay range   : [512, 262144]
-Array size(s) : 2
-Threads/Teams : 16 / 64
-MAX_ITER      : 6656
-MAX_ARRAY_SIZE: 65536
-NUM_SAMPLES   : 20
-==========================================
-There are  1 available devices
-Host device is 1
-
-========== Benchmark Execution ==========
-Method/N                           2
-teams distribute parallel for      318.800822±447.783041
-···
-```
-This table contained:
-| Field | Meaning |
-|------|---------|
-| Method/N | Each offloading method (cases 1–11) |
-| X ± Y | Estimated intercept ± standard deviation |
-
-### 🟩 2. Output from make microbenchmark_distribution
-
-One More File produced:
-```
-overhead_distribution.txt
-```
-
-Example content:
-```
-[Method=1 map(tofrom: a) N=16382]
-Set=0 Run=0  Lmin=8192  Intercept=619.150872μs  Slope=0.936642  R2=0.99998  BIC=72.969
-Set=0 Run=1  Lmin=8192  Intercept=646.507138μs  Slope=0.938634  R2=0.99994  BIC=80.739
-...
-Average Intercept=443.17 ± 244.72 μs
-```
-
-Explanation:
-
-| Field | Meaning |
-|------|---------|
-| Set | Independent runs |
-| Run | Inner independent repeats for statistical reliability |
-| Lmin | Breakpoint selected by BIC segmented regression |
-| Intercept | Estimated Kernel-launch overhead |
-| Slope | Per-unit Delaylength cost |
-| R2 | Regression fit quality|
-| BIC | Model selection score |
-
-We defaultly get 4 (2 Sets x 2 Runs) runs per method, and even 80 (20 innerreps x 40 outerreps) runs, so totally 320 runs improving stability.
-
-## 📥 Example run.sh (Should be wrapped in SLURM)
+Build the distribution-enabled benchmark:
 
 ```bash
-#!/bin/bash
-OUTDIR="MBResult_A/AR2_Output"
-mkdir -p "$OUTDIR"
-
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-OUTFILE="$OUTDIR/run_${TIMESTAMP}.out"
-
-./microbenchmark_distribution Method=6,8,9 N=2 Delay=262144 thread_count=16 team_count=64 | tee $OUTFILE
-mv overhead_distribution.txt $OUTDIR/overhead_$TIMESTAMP.txt
-```
-Used with:
-```
-srun ./run.sh
+make distribution
 ```
 
-## 📝 Default Configuration
+This produces:
 
-```
-#define N_DEF 16382
-#define NUM_SAMPLES 20
-#define MIN_DELAYLENGTH 512
-#define MAX_DELAYLENGTH 262144
-#define INNERREPS 20
-#define OUTERREPS 40
-#define WARMUP_ITERATIONS 10
-#define BENCHMARK_SETS 2
-#define BENCHMARK_RUNS 2
-#define NUM_METHODS 11
-#define NUM_SIZES 16
-#define MAX_ITER_DEF 6656
-#define MAX_ARRAY_SIZE_DEF 65536
-
+```text
+microbenchmark_distribution
 ```
 
-## 📌 Recent Modifications
+The distribution build enables detailed per-set/per-run fitting output in `overhead_distribution.txt`.
 
-- Added parameter parsing
-- Added warmup routines
-- Added Cray CCE support
-- Improved sampling stability
-- Added multi-backend Makefile system
+## Run
 
-## 📧 Contact
-For issues or suggestions, please open a GitHub Issue or email:
-📬 tuweiyu7749@gmail.com
+Basic example:
+
+```bash
+./microbenchmark Method=0,1,2,3,4,5,6,7,8,9,10,11 N=16384 thread_count=32 team_count=4
+```
+
+Distribution-output example:
+
+```bash
+./microbenchmark_distribution Method=5,6,10,11 N=16384 thread_count=32 team_count=4 Delay=1,8096
+```
+
+On a batch system, the executable is usually launched from a script in `jobs/`, for example:
+
+```bash
+bash jobs/run_GH.sh
+```
+
+or submitted through the scheduler, depending on the machine-specific script.
+
+## Runtime Parameters
+
+All runtime parameters use `key=value` syntax.
+
+| Parameter | Meaning |
+|-----------|---------|
+| `Method=` | Comma-separated list of benchmark method IDs. If omitted, all methods are run. |
+| `N=` | Comma-separated list of input/mapping sizes. |
+| `Delay=` | Delay range. `Delay=max` uses `[default_min, max]`; `Delay=min,max` uses the explicit range. |
+| `thread_count=` | OpenMP thread limit used by methods that expose thread control. |
+| `team_count=` | OpenMP team count used by methods that expose team control. |
+| `MAX_ITER=` | Overrides the total kernel iteration space. |
+| `MAX_ARRAY_SIZE=` | Overrides the allocated/mapped array size. |
+
+Default values in `src/microbenchmark.c`:
+
+```text
+N_DEF              = 16382
+NUM_SAMPLES        = 20
+MIN_DELAYLENGTH    = 1
+MAX_DELAYLENGTH    = 8096
+INNERREPS          = 20
+OUTERREPS          = 1
+WARMUP_ITERATIONS  = 10
+BENCHMARK_SETS     = 2
+BENCHMARK_RUNS     = 5
+MAX_ITER_DEF       = 6656
+MAX_ARRAY_SIZE_DEF = 65536
+```
+
+The benchmark adjusts `MAX_ITER` and `MAX_ARRAY_SIZE` upward when required so that selected `N`, `thread_count`, and `team_count` values are covered safely.
+
+## Method IDs
+
+| Method | Benchmark case |
+|--------|----------------|
+| `0` | Pure delay kernel baseline. |
+| `1` | `target map(tofrom: a)` |
+| `2` | `target map(to: a)` |
+| `3` | `target map(from: a)` |
+| `4` | `target map(alloc: a)` |
+| `5` | `target teams` scalar launch. |
+| `6` | `target teams distribute parallel for` |
+| `7` | `target nowait` followed by synchronization. |
+| `8` | `target teams distribute parallel for` with atomic update. |
+| `9` | `target teams distribute parallel for` with reduction. |
+| `10` | `target teams` with explicit inner `parallel`. |
+| `11` | Repeated inner `parallel` region inside `target teams`. |
+
+Methods `1`-`4` focus on mapping behavior. Methods `5`-`11` keep data mapped and focus more on launch, teams, parallel, atomic, and reduction behavior.
+
+## Output Files
+
+Normal and distribution runs can produce:
+
+```text
+raw_times.csv
+overhead_distribution.txt
+```
+
+`raw_times.csv` contains one row per measured data point:
+
+```text
+method_id, method_name, N, thread_count, team_count, set, run, delaylength, outerreps, exec_time_us
+```
+
+`overhead_distribution.txt` is produced when compiled with `-DPRINT_DISTRIBUTION`, usually through:
+
+```bash
+make distribution
+```
+
+It contains per-set/per-run fitting summaries such as:
+
+```text
+Set=0 Run=0 Lmin=... Intercept=... us Slope=... R2=... BIC=... Lowest=... us @ delay=...
+```
+
+## Plotting
+
+The plotting helper can be used after a distribution run has produced both CSV and fitting text files:
+
+```bash
+python3 plots/plot_raw_times.py raw_times.csv overhead_distribution.txt 1,18 log output.png
+```
+
+Arguments:
+
+```text
+raw_times.csv              raw timing data
+overhead_distribution.txt  fitted intercept/slope information
+1,18                       selected delay-index range
+log                        plot scale, either log or lin
+output.png                 output image file
+```
+
+## Notes For Reproduction
+
+1. Load the compiler/runtime modules required by the target machine.
+2. Confirm the correct `Makefile.defs.*` file is included by `Makefile`.
+3. Build with `make` or `make distribution`.
+4. Run the selected methods with explicit `N`, `thread_count`, and `team_count`.
+5. Move generated `raw_times.csv`, `overhead_distribution.txt`, and plots into a result directory outside this clean source snapshot.
+
+## Contact
+
+For questions about this snapshot or the active development version, please contact the repository owner or open an issue in the main development repository.

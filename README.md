@@ -246,3 +246,13 @@ output.png                 output image file
 ## Contact
 
 For questions about this snapshot or the active development version, please contact the repository owner or open an issue in the main development repository.
+
+## Fortran Translation
+
+The branch `codex/fortran-target` adds a complete Fortran target-offload benchmark in [openmpbench_Fortran_target](openmpbench_Fortran_target/). It retains the C snapshot's timing and workload logic and uses `-O0` by default. See its [build instructions](openmpbench_Fortran_target/README.md) and [equivalence audit](openmpbench_Fortran_target/AUDIT.md) for compiler-branch scope, mapping boundaries, thread/team controls and validation limits.
+
+```sh
+make -C openmpbench_Fortran_target check
+```
+
+The original C source, build definitions and job scripts are preserved. Local verification uses GNU Fortran/GCC and host execution; GPU offload still requires the intended device toolchain.

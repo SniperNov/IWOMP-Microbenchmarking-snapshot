@@ -1,0 +1,8 @@
+*.mod
+*.o
+microbenchmark
+microbenchmark_distribution
+microbenchmark_check
+raw_times.csv
+overhead_distribution.txt
+*.dSYM/

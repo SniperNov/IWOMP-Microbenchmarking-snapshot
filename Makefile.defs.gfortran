@@ -1,0 +1,7 @@
+# GNU Fortran host build. Add your installed offload backend/architecture
+# options to FFLAGS/LDFLAGS for GPU measurements.
+FC = gfortran
+FFLAGS = -O0 -fopenmp -cpp -ffree-line-length-none
+LDFLAGS = -fopenmp
+LIBS = -lm
+FMOD_FLAG = -J

@@ -1,0 +1,5 @@
+# GNU C host-only build for compilation checks. No GPU offload backend.
+CC = gcc
+CFLAGS = -O0 -fopenmp
+LDFLAGS = -fopenmp
+LIBS = -lm

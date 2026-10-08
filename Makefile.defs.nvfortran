@@ -1,0 +1,6 @@
+# NVIDIA HPC SDK Fortran GPU offload (architecture may be supplied by user).
+FC = nvfortran
+FFLAGS = -O0 -mp=gpu -Mpreprocess -Mfree
+LDFLAGS = -mp=gpu
+LIBS = -lm
+FMOD_FLAG = -module

@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-croot = root.parent / 'src'
+croot = root / 'src'
 fc = shlex.split(os.environ.get('TEST_FC', 'gfortran'))
 cc = shlex.split(os.environ.get('TEST_CC', 'gcc-14'))
 if not shutil.which(fc[0]) or not shutil.which(cc[0]):

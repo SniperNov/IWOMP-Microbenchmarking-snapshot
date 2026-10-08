@@ -35,3 +35,9 @@ visualise.py
 
 .venv/
 software/
+
+# Unified C/Fortran build products
+.build/
+*.mod
+*.dSYM/
+microbenchmark_check

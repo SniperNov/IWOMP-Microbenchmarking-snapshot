@@ -1,6 +1,6 @@
 # C/Fortran benchmark audit
 
-Reviewed on 7 October 2026 against the preserved `../src/microbenchmark.c` and `../src/common.c`. Changes live on `codex/fortran-target`; C sources and the `main` commit remain unchanged. This is an audit of this snapshot, not a validation or rejection of historical measured results.
+Reviewed on 7 October 2026 against the preserved `src/microbenchmark.c` and `src/common.c`. Changes live on `codex/fortran-target`; C sources and the `main` commit remain unchanged. This is an audit of this snapshot, not a validation or rejection of historical measured results.
 
 ## Mapping and kernel timing
 
@@ -56,3 +56,11 @@ Host initialization, strict argument validation, labelled output rows and explic
 ## Verification limits
 
 GNU Fortran/GCC 14.2.0 compiled all builds. Checked and distribution runs cover all methods. Independent C/Fortran functional comparison checks 96 final arrays, atomic/reduction buckets, and exact delay samples. C is compiled by GCC with `__NVCOMPILER` selecting the source branch; this tests source semantics, not NVHPC GPU code generation. Local host fallback cannot verify actual GPU transfer directions, requested/actual thread-team counts, or offload performance. No claim of device-measurement equivalence is made.
+
+## Unified layout and build update — 8 October 2026
+
+The Fortran source files were moved unchanged into root `src/`, alongside their C counterparts. Tests now live in root `tests/`; `FORTRAN.md` and this audit are root documentation. The separate Fortran subdirectory/Makefile was removed. `src/common.f90` supplies module interfaces rather than a manually maintained C-style header, and is compiled before `src/microbenchmark.F90`.
+
+One root Makefile retains C as the unspecified default, supports explicit `BENCH_LANG=c|fortran`, and auto-detects from compiler/profile choices. It keeps the existing executable names. Each selected target rebuilds, and per-language/per-mode generated directories prevent stale binaries and concurrent module-file conflicts. All existing C compiler profiles remain unchanged. NVFortran and GNU Fortran profiles are added with `-O0`; host GNU verification is separated from GPU profile flags.
+
+The language-selection, parallel-build, compiler/flag-switch and relative-path tests passed with GNU C/Fortran. The complete earlier kernel/statistics verification was rerun after relocation. No benchmark timing region, mapping clause, team/thread clause, delay kernel or statistical estimator was edited in this update. NVHPC/GPU compilation remains unverified locally.
